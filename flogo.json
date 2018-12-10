@@ -1,0 +1,170 @@
+{
+  "name": "aws-lambda-bootstrap-flogo",
+  "type": "flogo:app",
+  "version": "0.0.1",
+  "appModel": "1.0.0",
+  "triggers": [
+    {
+      "id": "start_flow_as_a_function_in_lambda",
+      "ref": "github.com/TIBCOSoftware/flogo-contrib/trigger/lambda",
+      "name": "Start Flow as a function in Lambda",
+      "description": "Simple Lambda Trigger",
+      "settings": {},
+      "handlers": [
+        {
+          "action": {
+            "ref": "github.com/TIBCOSoftware/flogo-contrib/action/flow",
+            "data": {
+              "flowURI": "res://flow:lambda_flow"
+            },
+            "mappings": {
+              "input": [
+                {
+                  "mapTo": "name",
+                  "type": "assign",
+                  "value": "$.evt.name"
+                }
+              ],
+              "output": [
+                {
+                  "mapTo": "data",
+                  "type": "assign",
+                  "value": "$.greeting"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "flow:lambda_flow",
+      "data": {
+        "name": "LambdaFlow",
+        "metadata": {
+          "input": [
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "output": [
+            {
+              "name": "greeting",
+              "type": "any"
+            }
+          ]
+        },
+        "tasks": [
+          {
+            "id": "log_2",
+            "name": "Log Message",
+            "description": "Simple Log Activity",
+            "activity": {
+              "ref": "github.com/TIBCOSoftware/flogo-contrib/activity/log",
+              "input": {
+                "message": "",
+                "flowInfo": "false",
+                "addToFlow": "false"
+              },
+              "mappings": {
+                "input": [
+                  {
+                    "type": "expression",
+                    "value": "string.concat(\"Hello \", $flow.name)",
+                    "mapTo": "message"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "command_2",
+            "name": "Command",
+            "description": "Execute a command",
+            "activity": {
+              "ref": "github.com/square-it/flogo-contrib-activities/command",
+              "input": {
+                "useCurrentEnvironment": true,
+                "timeout": 0,
+                "wait": true,
+                "command": "sh"
+              },
+              "mappings": {
+                "input": [
+                  {
+                    "type": "assign",
+                    "value": "$env[LAMBDA_TASK_ROOT]",
+                    "mapTo": "directory"
+                  },
+                  {
+                    "type": "object",
+                    "value": [
+                      "-c",
+                      "./up.sh"
+                    ],
+                    "mapTo": "arguments"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "log_4",
+            "name": "Log Message out",
+            "description": "Simple Log Activity",
+            "activity": {
+              "ref": "github.com/TIBCOSoftware/flogo-contrib/activity/log",
+              "input": {
+                "flowInfo": "false",
+                "addToFlow": "false"
+              },
+              "mappings": {
+                "input": [
+                  {
+                    "type": "assign",
+                    "value": "$activity[command_2].output",
+                    "mapTo": "message"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "actreturn_3",
+            "name": "Return",
+            "description": "Simple Return Activity",
+            "activity": {
+              "ref": "github.com/TIBCOSoftware/flogo-contrib/activity/actreturn",
+              "input": {
+                "mappings": [
+                  {
+                    "mapTo": "greeting",
+                    "type": "object",
+                    "value": {"Hello": "{{$flow.name}}"}
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "from": "log_2",
+            "to": "command_2"
+          },
+          {
+            "from": "command_2",
+            "to": "log_4"
+          },
+          {
+            "from": "log_4",
+            "to": "actreturn_3"
+          }
+        ]
+      }
+    }
+  ]
+}
